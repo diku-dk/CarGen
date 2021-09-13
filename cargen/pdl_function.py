@@ -61,12 +61,12 @@ def get_pdl_layer(vertices_p,
     # smooth the edges
     for i in range(param.smoothing_iteration):
         vertices_p = cargen.smooth_boundary(vertices_p,
-                                            base_vertex_idxs,
+                                            boundary_vertex_idxs,
                                             param.smoothing_factor)
 
     # snap back to the primary bone
     vertices_p = cargen.snap_to_surface(vertices_p,
-                                        base_vertex_idxs,
+                                        boundary_vertex_idxs,
                                         vertices_bp,
                                         faces_p)
 
