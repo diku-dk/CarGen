@@ -134,3 +134,4 @@ dmypy.json
 output/
 mid_output/
 full_hip_area.ipynb
+debug/
