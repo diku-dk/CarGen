@@ -91,7 +91,7 @@ def get_hj_cartilage(vertices_p, faces_p,
     vertices_p = cargen.smooth_and_separate_boundaries(vertices_p,
                                                        boundary_edges,
                                                        param.smoothing_factor,
-                                                       param.smoothing_iteration)
+                                                       param.smoothing_iteration_base)
     # snap back to the primary bone
     vertices_p = cargen.snap_to_surface(vertices_p,
                                         boundary_vertex_idxs,
