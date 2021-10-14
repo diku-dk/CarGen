@@ -2,7 +2,7 @@ import numpy as np
 import igl
 import meshplot as mp
 import matplotlib.pyplot as plt
-
+import math
 
 def clean(vertices,
           faces):
@@ -400,9 +400,9 @@ def norm_visualization(vertices,
     end_points = centroids + face_normals * avg_edge_length * arrow_length
 
     # visualization
-    frame = mp.plot(vertices, faces, shading={"wireframe": True})
-    frame.add_lines(centroids, end_points, shading={"line_color": "aqua"})
-
+#     frame = mp.plot(vertices, faces, c = pastel_yellow, shading = sh_true)
+#     frame.add_lines(centroids, end_points, shading={"line_color": "aqua"})
+    return centroids, end_points
 
 def merge_surface_mesh(vertices_1,
                        faces_1,
@@ -573,15 +573,16 @@ def make_cut_plane_view(vertices,
 
 
 def get_wall(vertices_p,
-             boundary_vertex_idxs):
+             boundary_vertex_idxs1,
+             boundary_vertex_idxs2 ):
     """
 
     :param vertices_p:
     :param boundary_vertex_idxs:
     :return:
     """
-    internal_boundary = np.copy(boundary_vertex_idxs)
-    external_boundary = np.copy(boundary_vertex_idxs)
+    internal_boundary = np.copy(boundary_vertex_idxs1)
+    external_boundary = np.copy(boundary_vertex_idxs2)
 
     # closing the loop
     internal_boundary = np.append(internal_boundary, internal_boundary[0])
@@ -636,6 +637,17 @@ def contact_surface(vertices_1,
                     faces_2,
                     epsilon):
 
+    """
+    This function measured the contact surface in the cartilage-cartilage interface.
+
+    :param vertices_1: vertices: list of vertex positions
+    :param face_1:
+    :param vertices_2: list of vertex positions
+    :param faces_2:
+    :param epsilon:
+
+    """
+
     # triangle centroids
     triangle_centroids = igl.barycenter(vertices_1, faces_1)
 
@@ -657,6 +669,142 @@ def contact_surface(vertices_1,
     print("contact surface area is: ", np.round(contact_area, 2))
 
 
+def neighbouring_info(vertices, faces):
+
+    """
+    This function measured the contact surface in the cartilage-cartilage interface.
+
+    :param vertices:
+    :param faces:
+
+    :return:
+
+    """
+
+    # adjacency info
+    face_adjacency, cumulative_sum = igl.vertex_triangle_adjacency(faces, len(vertices))
+
+    # part.1 boundary vertex indices
+    boundary_vertex_idxs = igl.boundary_loop(faces)
+
+    # part.2 neighboring faces to these vertices
+    boundary_face_idxs = []
+    container = []
+    for j in boundary_vertex_idxs:
+        for k in range(cumulative_sum[j], cumulative_sum[j + 1]):
+            container += [face_adjacency[k]]
+        boundary_face_idxs.append(container)
+        container = []
+
+    # part.3 find the face neighbors to these faces
+    tt_info = igl.triangle_triangle_adjacency(faces)[0]
+
+    container = []
+    neigh_face_list = []
+    for i in boundary_face_idxs:
+        a = tt_info[i]
+        a = np.unique(a.flatten())
+        a = a.tolist()
+        neigh_face_list.append(a[1:])
+        a = 0
+
+    return boundary_vertex_idxs, boundary_face_idxs, neigh_face_list
+
+
+def get_dihedral_angle (vertices, faces, face_idxs, neigh_face_list ):
+
+    """
+    This function measured the contact surface in the cartilage-cartilage interface.
+
+    :param vertices:
+    :param faces:
+
+    :return:
+
+    """
+
+    # face normals
+    face_normals = igl.per_face_normals(vertices, faces[face_idxs], np.array([1., 1., 1.]))
+
+    # measure dihedral angles
+    container = []
+    angles = []
+
+    for i in neigh_face_list:
+        # make all possible pairs
+        pairs = []
+        for j in range(len(i)):
+            for k in range(len(i)):
+                a = [i[j], i[k]]
+                pairs.append(a)
+        pairs = np.array(pairs)
+
+        # find the dihedral angle of each pair
+        for l in pairs:
+            cos = np.dot(face_normals[l[0]], face_normals[l[1]])
+            cos = np.clip(cos, -1, 1)
+            container.append(np.arccos(cos))
+        angles.append(container)
+        container = []
+
+    max_angles = []
+    for i in angles:
+        container = np.max(i)
+        max_angles.append(container)
+        container = []
+
+    return max_angles
+
+def fix_boundary(vertices, faces, face_idxs, boundary_vertex_idxs, folded_vertex_idxs ):
+
+    """
+    This function measured the contact surface in the cartilage-cartilage interface.
+
+    :param vertices:
+    :param faces:
+
+    :return:
+
+    """
+
+    # adjacency info
+    face_adjacency, cumulative_sum = igl.vertex_triangle_adjacency(faces[face_idxs], len(vertices))
+
+    container = []
+    per_vertex_neighbour_face_idxs = []
+    for i in boundary_vertex_idxs[folded_vertex_idxs]:
+        for k in range(cumulative_sum[i], cumulative_sum[i + 1]):
+            container += [face_adjacency[k]]
+        per_vertex_neighbour_face_idxs.append(container)
+        container = []
+
+    all_neighbour_face_idxs = []
+    for i in per_vertex_neighbour_face_idxs:
+        for j in i:
+            all_neighbour_face_idxs.append(j)
+
+    all_array = np.array(all_neighbour_face_idxs)
+    count = []
+    for i in all_neighbour_face_idxs:
+        count.append(all_neighbour_face_idxs.count(i))
+
+    count = np.array(count)
+
+    mutual = np.where(count == 2)[0]
+
+    faulty_face_idxs = all_array[mutual]
+    faulty_face_idxs = np.unique(faulty_face_idxs)
+
+    # vz
+    print("The pink triangles will be removed:")
+    frame = mp.plot(vertices, faces[face_idxs], c=pastel_blue, shading=sh_false)
+    frame.add_mesh(vertices, faces[face_idxs[faulty_face_idxs]], c=sweet_pink, shading=sh_true)
+
+    face_idxs = np.delete(face_idxs, faulty_face_idxs, axis=0)
+
+    return face_idxs
+
+
 """
 Cartilage generation parameters
 
@@ -672,7 +820,8 @@ Refers to the gaussian, mean, the maximum and the minimum of the principal curva
 @param max_curvature_threshold: The maximum curvature where we will consider the surface to be part of the cartilage
 @param blending_order: Order of the harmonic weight computation during cartilage generation.
 @param smoothing_factor: The size of the smoothing step (this is similar to the 'h' parameter in mean curvature flow)
-@param smoothing_iteration: The number of times the smoothing step should be performed.
+@param smoothing_iteration_base: The number of times the smoothing step should be performed on the base layer.
+@param smoothing_iteration_extruded_base: The number of times the smoothing step should be performed on the extruded layer.
 @param output_dimension: The scale of the output ("mm" = millimeters, "m" = meters).
 @param thickness_factor: a constant which will be multiplied by the distance between two surfaces.This allows you to 
 control the thickness value.
@@ -690,12 +839,14 @@ class Var:
         self.max_curvature_threshold: float = np.inf
         self.blending_order: int = 2
         self.smoothing_factor: float = 0.5
-        self.smoothing_iteration: int = 3
+        self.smoothing_iteration_base: int = 3
+        self.smoothing_iteration_extruded_base: int = 3
         self.output_name: str = "cartilage_name"
         self.extend_cartilage_flag = True
         self.curve_info = False
         self.upsampling_iteration: int = 0
         self.thickness_factor: float = 0.5
+        self.fix_boundary = True
 
     def reset(self):
         self.neighbourhood_size = 20
@@ -706,12 +857,14 @@ class Var:
         self.max_curvature_threshold = np.inf
         self.blending_order = 2
         self.smoothing_factor = 0.5
-        self.smoothing_iteration = 3
+        self.smoothing_iteration_base = 3
+        self.smoothing_iteration_extruded_base = 3
         self.output_name = "cartilage_name"
         self.extend_cartilage_flag = True
         self.curve_info = False
         self.upsampling_iteration = 0
         self.thickness_factor: float = 0.5
+        self.fix_boundary = True
 
 
 " Colors and Eye-candies"
@@ -728,7 +881,12 @@ tooth = np.array([255, 250, 220]) / 255
 organ = np.array([221, 130, 101]) / 255.
 green = np.array([128, 174, 128]) / 255.
 blue = np.array([111, 184, 210]) / 255.
-sweet_pink = np.array([0.9, 0.4, 0.45])
+sweet_pink = np.array([0.9, 0.4, 0.45])  #230, 102, 115
+rib = np.array([253, 232, 158]) / 255.
+skin = np.array([242, 209, 177]) / 255.
+chest = np.array([188, 95, 76]) / 255.
+
+
 # Meshplot settings
 sh_true = {'wireframe': True, 'flat': True, 'side': 'FrontSide', 'reflectivity': 0.1, 'metalness': 0}
 sh_false = {'wireframe': False, 'flat': True, 'side': 'FrontSide', 'reflectivity': 0.1, 'metalness': 0}
