@@ -597,61 +597,38 @@ def get_wall(vertices_p,
 
     return wall_faces
 
-
-def snap_to_surface(vertices,
-                    penetrating_vertex_idxs,
-                    vertices_r,
-                    faces_r):
-
+def snap_to_surface ( vertices, vertices_r, faces_r ):
     """
-    This function removes penetration with respect to a reference surface by snapping them to the reference surface
 
-    :param vertices: vertices: list of vertex positions
-    :param penetrating_vertex_idxs: list of vertex indices that we want to remove their penetration
-    :param vertices_r: list of vertex positions of the reference surface which we don't want penetration to
-    :param faces_r: list of the reference faces which we don't want penetration to
-
-    :return: updated penetration-free list of vertex positions
-
+    :param vertices:
+    :param vertices_r:
+    :param faces_r:
+    :param penetration:
+    :param gap:
+    :return:
     """
-    # measure the penetrating amount
-    sd_value, _, closest_points = igl.signed_distance(vertices[penetrating_vertex_idxs],
-                                                      vertices_r, faces_r,
-                                                      return_normals=False)
 
-    # penetrating_vertices = np.where(sd_value <= 0)[0]
-    # vertices[penetrating_vertex_idxs[penetrating_vertices]] = closest_points[penetrating_vertices]
-    # alternative:
-    vertices[penetrating_vertex_idxs] = closest_points
-    return vertices
-
-def snap_surface_to_surface(vertices,
-                            vertices_r,
-                            faces_r):
-
-    """
-    This function removes penetration with respect to a reference surface by snapping them to the reference surface
-
-    :param vertices: vertices: list of vertex positions
-    :param penetrating_vertex_idxs: list of vertex indices that we want to remove their penetration
-    :param vertices_r: list of vertex positions of the reference surface which we don't want penetration to
-    :param faces_r: list of the reference faces which we don't want penetration to
-
-    :return: updated penetration-free list of vertex positions
-
-    """
-    vertices_p = np.copy(vertices)
-    # measure the penetrating amount
-    sd_value, _, closest_points = igl.signed_distance(vertices,
-                                                      vertices_r, faces_r,
-                                                      return_normals=False)
-
-    penetrating_vertices = np.where(sd_value <= 0)[0]
-
-    vertices_p[penetrating_vertices] = closest_points[penetrating_vertices]
+    vertices_p = np.copy (vertices)
+    sd_value, _, closest_points = igl.signed_distance(vertices_p, vertices_r, faces_r, return_normals=False)
+    vertices_p = closest_points
 
     return vertices_p
 
+
+def remove_penetration (vertices, vertices_r, faces_r):
+    """
+
+    :param vertices:
+    :param vertices_r:
+    :param faces_r:
+    :return:
+    """
+    vertices_p = np.copy(vertices)
+    sd_value, _, closest_points = igl.signed_distance(vertices_p, vertices_r, faces_r, return_normals=False)
+    penetrating_vertices = np.where(sd_value <= 0)[0]
+    vertices_p[penetrating_vertices] = closest_points[penetrating_vertices]
+
+    return vertices_p
 
 
 def contact_surface(vertices_1,

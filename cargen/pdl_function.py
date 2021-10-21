@@ -78,18 +78,12 @@ def get_pdl_layer(vertices_p,
     frame = mp.plot(vertices_p, faces_p[base_face_idxs], c=cargen.pastel_yellow, shading=cargen.sh_true)
     frame.add_lines(centroids, end_points, shading={"line_color": "aqua"})
 
-    # apply the smoothing + snapping
+    # apply the smoothing + remove penetration/gap
     iteration = []
     for ss in range(param.smoothing_iteration_base):
-        vertices_p = cargen.smooth_boundary(vertices_p,
-                                            base_b_vertex_idxs,
-                                            param.smoothing_factor)
 
-        vertices_p = cargen.snap_to_surface(vertices_p,
-                                            base_b_vertex_idxs,
-                                            vertices_bp,
-                                            faces_p)
-
+        vertices_p = cargen.smooth_boundary(vertices_p, base_b_vertex_idxs, param.smoothing_factor)
+        vertices_p = cargen.snap_to_surface(vertices_p, vertices_bp, faces_p)
         smoothed_max_angles = cargen.get_dihedral_angle(vertices_p, faces_p, base_face_idxs, neigh_face_list)
 
         folded_vertex_idxs = []
@@ -120,7 +114,7 @@ def get_pdl_layer(vertices_p,
 
         # vz
         print("faulty vertices & neighbouring triangles:")
-        frame = mp.plot(vertices_p, faces_p[base_face_idxs], c=cargen.pastel_blue, shading=cargen.sh_false)
+        frame = mp.plot(vertices_p, faces_p[base_face_idxs], c=cargen.blue, shading=cargen.sh_false)
         frame.add_points(vertices_p[base_b_vertex_idxs[folded_vertex_idxs]],
                          shading={"point_size": 0.2, "point_color": "red"})
 
@@ -140,7 +134,6 @@ def get_pdl_layer(vertices_p,
             frame = mp.plot(vertices_p, faces_p[base_face_idxs], c=cargen.pastel_yellow, shading=cargen.sh_true)
             frame.add_lines(centroids, end_points, shading={"line_color": "aqua"})
 
-
     else:
         print("Everything is clean in the base layer. we will now continue to extrusion step:")
         print("")
@@ -151,7 +144,7 @@ def get_pdl_layer(vertices_p,
     " Part B. Extrusion "
     thickness_profile = cargen.assign_thickness(vertices_p,
                                                 faces_p,
-                                                vertices_s,
+                                                vertices_bs,
                                                 faces_s,
                                                 base_face_idxs,
                                                 param.thickness_factor)
@@ -164,6 +157,10 @@ def get_pdl_layer(vertices_p,
                                              faces_p,
                                              base_face_idxs,
                                              weights)
+
+    # snap to the opposite surface
+    ex_vertices_p = cargen.snap_to_surface(ex_vertices_p, vertices_bs, faces_s)
+
     ex_base_face_idxs = np.copy(base_face_idxs)
 
     # neighbour info
@@ -182,18 +179,27 @@ def get_pdl_layer(vertices_p,
     frame = mp.plot(ex_vertices_p, faces_p[base_face_idxs], c=cargen.pastel_yellow, shading=cargen.sh_true)
     frame.add_lines(centroids, end_points, shading={"line_color": "aqua"})
 
-    # apply the smoothing + snapping
-    iteration = []
-    for ss in range(param.smoothing_iteration_extruded_base):
-        ex_vertices_p = cargen.smooth_boundary(ex_vertices_p,
-                                               ex_base_b_vertex_idxs,
-                                               param.smoothing_factor)
+    if param.smoothing_iteration_extruded_base != 0:
+        # apply the smoothing + remove penetration/gap
+        iteration = []
+        for ss in range(param.smoothing_iteration_extruded_base):
+            ex_vertices_p = cargen.smooth_boundary(ex_vertices_p, ex_base_b_vertex_idxs, param.smoothing_factor)
+            ex_vertices_p = cargen.snap_to_surface(ex_vertices_p, vertices_bs, faces_s)
+            smoothed_max_angles = cargen.get_dihedral_angle(ex_vertices_p, faces_p, ex_base_face_idxs, neigh_face_list)
 
-        ex_vertices_p = cargen.snap_to_surface(ex_vertices_p,
-                                               ex_base_b_vertex_idxs,
-                                               vertices_bs,
-                                               faces_s)
+            folded_vertex_idxs = []
+            # np.float64(2) # max_angle
+            for count, i in enumerate(smoothed_max_angles):
+                if i > np.float64(2):
+                    folded_vertex_idxs.append(count)
+                    iteration.append(ss - 1)
 
+        smoothed_max_angle = np.max(smoothed_max_angles)
+        smoothed_max_angle = np.round(smoothed_max_angle, 2)
+
+        print("Extruded layer: max dihedral angle after smoothing is", smoothed_max_angle,
+              "radians (", np.round(math.degrees(smoothed_max_angle), 2), "degrees).")
+    else:
         smoothed_max_angles = cargen.get_dihedral_angle(ex_vertices_p, faces_p, ex_base_face_idxs, neigh_face_list)
 
         folded_vertex_idxs = []
@@ -203,11 +209,11 @@ def get_pdl_layer(vertices_p,
                 folded_vertex_idxs.append(count)
                 iteration.append(ss - 1)
 
-    smoothed_max_angle = np.max(smoothed_max_angles)
-    smoothed_max_angle = np.round(smoothed_max_angle, 2)
+        smoothed_max_angle = np.max(smoothed_max_angles)
+        smoothed_max_angle = np.round(smoothed_max_angle, 2)
 
-    print("Extruded layer: max dihedral angle after smoothing is", smoothed_max_angle,
-          "radians (", np.round(math.degrees(smoothed_max_angle), 2), "degrees).")
+        print("Extruded layer: max dihedral angle after smoothing is", smoothed_max_angle,
+              "radians (", np.round(math.degrees(smoothed_max_angle), 2), "degrees).")
 
     # norm visualization
     centroids, end_points = cargen.norm_visualization(ex_vertices_p, faces_p[ex_base_face_idxs])
@@ -242,7 +248,6 @@ def get_pdl_layer(vertices_p,
             centroids, end_points = cargen.norm_visualization(ex_vertices_p, faces_p[ex_base_face_idxs])
             frame = mp.plot(ex_vertices_p, faces_p[ex_base_face_idxs], c=cargen.pastel_yellow, shading=cargen.sh_true)
             frame.add_lines(centroids, end_points, shading={"line_color": "aqua"})
-
 
     else:
         print("Everything is clean in the extruded base layer. We will now continue to create the roof.")
