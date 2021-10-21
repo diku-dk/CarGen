@@ -122,6 +122,7 @@ def get_gap_cartilage(vertices_p,
 
     # build wall
     roof_faces = cargen.get_wall(vertices_p,
+                                 boundary_vertex_idxs,
                                  boundary_vertex_idxs)
 
     # merge left, top, and right faces

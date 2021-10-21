@@ -40,9 +40,9 @@ def read_and_clean(path,
     if input_dimension == "m":
         vertices = vertices * 1000
 
-    print("number of triangles", len(faces))
-
     vertices, faces = clean(vertices, faces)
+
+    print("number of triangles after cleaning", len(faces))
 
     return vertices, faces
 
@@ -497,9 +497,7 @@ def smooth_boundary(vertices,
 def save_surface(vertices,
                  faces,
                  output_dim,
-                 output_name,
-                 output_dir,
-                 format:str
+                 path
                  ):
     """
     this function saves a surface mesh (obj file format) of the generated model
@@ -515,10 +513,7 @@ def save_surface(vertices,
     if output_dim == "m":
         vertices = vertices / 1000
 
-    output_n = output_name + "_" + output_dim + format
-    path = output_dir/output_n
-
-    igl.write_triangle_mesh(path.as_posix(), vertices, faces)
+    igl.write_triangle_mesh(path, vertices, faces)
 
 
 def get_area(vertices,
@@ -629,6 +624,34 @@ def snap_to_surface(vertices,
     # alternative:
     vertices[penetrating_vertex_idxs] = closest_points
     return vertices
+
+def snap_surface_to_surface(vertices,
+                            vertices_r,
+                            faces_r):
+
+    """
+    This function removes penetration with respect to a reference surface by snapping them to the reference surface
+
+    :param vertices: vertices: list of vertex positions
+    :param penetrating_vertex_idxs: list of vertex indices that we want to remove their penetration
+    :param vertices_r: list of vertex positions of the reference surface which we don't want penetration to
+    :param faces_r: list of the reference faces which we don't want penetration to
+
+    :return: updated penetration-free list of vertex positions
+
+    """
+    vertices_p = np.copy(vertices)
+    # measure the penetrating amount
+    sd_value, _, closest_points = igl.signed_distance(vertices,
+                                                      vertices_r, faces_r,
+                                                      return_normals=False)
+
+    penetrating_vertices = np.where(sd_value <= 0)[0]
+
+    vertices_p[penetrating_vertices] = closest_points[penetrating_vertices]
+
+    return vertices_p
+
 
 
 def contact_surface(vertices_1,
@@ -841,12 +864,12 @@ class Var:
         self.smoothing_factor: float = 0.5
         self.smoothing_iteration_base: int = 3
         self.smoothing_iteration_extruded_base: int = 3
-        self.output_name: str = "cartilage_name"
         self.extend_cartilage_flag = True
         self.curve_info = False
         self.upsampling_iteration: int = 0
         self.thickness_factor: float = 0.5
         self.fix_boundary = True
+        self.no_extend_trimming_iteration: int = 3
 
     def reset(self):
         self.neighbourhood_size = 20
@@ -859,12 +882,12 @@ class Var:
         self.smoothing_factor = 0.5
         self.smoothing_iteration_base = 3
         self.smoothing_iteration_extruded_base = 3
-        self.output_name = "cartilage_name"
         self.extend_cartilage_flag = True
         self.curve_info = False
         self.upsampling_iteration = 0
         self.thickness_factor: float = 0.5
         self.fix_boundary = True
+        self.no_extend_trimming_iteration = 2
 
 
 " Colors and Eye-candies"

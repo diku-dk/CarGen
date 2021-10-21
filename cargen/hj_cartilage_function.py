@@ -78,8 +78,9 @@ def get_hj_cartilage(vertices_p, faces_p,
                                               1)
 
         # remove ears
-        base_face_idxs = cargen.remove_ears(faces_p,
-                                            base_face_idxs)
+        for i in range(3):
+            int_face_idxs = cargen.remove_ears(faces_p,
+                                               int_face_idxs)
 
     else:
         base_face_idxs = int_face_idxs
@@ -120,7 +121,12 @@ def get_hj_cartilage(vertices_p, faces_p,
                                              int_face_idxs,
                                              face_adjacency,
                                              cumulative_sum,
-                                             2)
+                                             param.no_extend_trimming_iteration)
+        # remove ears
+        for i in range(3):
+            int_face_idxs = cargen.remove_ears(faces_p,
+                                               int_face_idxs)
+
 
     # (optional: for better results but ...)
     #     int_face_idxs  = trim_boundary ( b1_faces, int_face_idxs, face_idxs, cumulative_sum, 1 )
@@ -154,16 +160,10 @@ def get_hj_cartilage(vertices_p, faces_p,
     harmonic_weights = harmonic_weights[base_vertex_idxs]
 
     # extrude surface
-    cartilage_vertices = cargen.extrude_cartilage(vertices_p,
-                                                  faces_p,
-                                                  base_face_idxs,
-                                                  harmonic_weights)
-
-    # viz
-    frame = mp.plot(vertices_p, faces_p, c=cargen.bone, shading=cargen.sh_false)
-    frame.add_mesh(vertices_p, faces_p[base_face_idxs], c=cargen.sweet_pink, shading=cargen.sh_false)
-    frame.add_mesh(vertices_p, faces_p[int_face_idxs], c=cargen.pastel_yellow, shading=cargen.sh_false)
-    frame.add_mesh(cartilage_vertices, faces_p[int_face_idxs], c=cargen.pastel_green, shading=cargen.sh_true)
+    top_vertices = cargen.extrude_cartilage(vertices_p,
+                                            faces_p,
+                                            base_face_idxs,
+                                            harmonic_weights)
 
     # flip normals of the bottom surface
     base_faces = faces_p[base_face_idxs]
@@ -172,22 +172,28 @@ def get_hj_cartilage(vertices_p, faces_p,
     # merge the top and bottom vertices
     cartilage_vertices, cartilage_faces = cargen.merge_surface_mesh(vertices_p,
                                                                     base_faces,
-                                                                    cartilage_vertices,
+                                                                    top_vertices,
                                                                     faces_p[base_face_idxs])
-
-    # viz
-    frame = mp.plot(vertices_bp, faces_p, c=cargen.bone, shading=cargen.sh_false)
-    frame.add_mesh(cartilage_vertices, cartilage_faces, c=cargen.pastel_orange, shading=cargen.sh_true)
 
     # visualizing normals
     #     norm_visualization ( cartilage_vertices, cartilage_faces )
 
     # clean output
-    cartilage_vertices, cartilage_faces, _, _ = igl.remove_unreferenced(cartilage_vertices, cartilage_faces)
+    # cartilage_vertices, cartilage_faces, _, _ = igl.remove_unreferenced(cartilage_vertices, cartilage_faces)
+    cartilage_vertices, cartilage_faces = cargen.clean(cartilage_vertices, cartilage_faces)
+
+    top_vertices, top_faces = cargen.clean( top_vertices, faces_p[base_face_idxs])
+
+    # viz
+    frame = mp.plot(vertices_bp, faces_p, c=cargen.bone, shading=cargen.sh_false)
+    frame.add_mesh(cartilage_vertices, cartilage_faces, c=cargen.pastel_orange, shading=cargen.sh_true)
+
+    frame = mp.plot(top_vertices, top_faces, c=cargen.pastel_green, shading=cargen.sh_true)
+
 
     # geometry
     print("cartilage area is: ", np.round(cartilage_area, 2))
     print("mean cartilage thickness is: ", np.round(np.mean(harmonic_weights), 2))
     print("maximum cartilage thickness is: ", np.round(np.max(harmonic_weights), 2))
 
-    return cartilage_vertices, cartilage_faces
+    return cartilage_vertices, cartilage_faces, top_vertices, top_faces
