@@ -74,8 +74,13 @@ control the thickness value.
 ## Documentation 
 Please refer to our published paper at [Computational Biomechanics for Medicine XVI](https://cbm.mech.uwa.edu.au/CBM2021/index.html)
 ## Citation
-```python
-soon to be added
+```bash
+@article{moshfeghifar2022direct,
+  title={A direct geometry processing cartilage generation method using segmented bone models from datasets with poor cartilage visibility},
+  author={Moshfeghifar, Faezeh and Nielsen, Max Kragballe and Tasc{\'o}n-Vidarte, Jos{\'e} D and Darkner, Sune and Erleben, Kenny},
+  journal={arXiv preprint arXiv:2203.10667},
+  year={2022}
+}
 ```
 ## Acknowledgement 
 ❤️ We would like to thank the [Libigl](https://libigl.github.io) team, as the core of CarGen algorithm is based on the various functions available in the Libigl library.
